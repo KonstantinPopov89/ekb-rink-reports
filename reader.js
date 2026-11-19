@@ -12,6 +12,7 @@
   const zone = "Asia/Yekaterinburg";
   const clock = new Intl.DateTimeFormat("ru-RU", {timeZone: zone, day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
   const dateLabel = new Intl.DateTimeFormat("ru-RU", {timeZone: zone, weekday:"short", day:"numeric", month:"short"});
+  const fullDate = new Intl.DateTimeFormat("ru-RU", {timeZone: "UTC", day:"numeric", month:"long", year:"numeric"});
   const localDay = new Intl.DateTimeFormat("en-CA", {timeZone:zone, year:"numeric", month:"2-digit", day:"2-digit"});
   const counts = new Intl.NumberFormat("ru-RU");
   const hour = 60 * 60 * 1000;
@@ -22,11 +23,13 @@
   let lastUpdate = null;
   let renderedDay = "";
   let archiveUrl = null;
+  let assetRequest = 0;
+  let listedWeek;
 
   const files = [
     {filename:"season.pdf.enc", title:"Сезонный отчёт 2025/26", type:"application/pdf"},
-    {filename:"week-W07.html.enc", title:"Недельный отчёт за 9-15 февраля 2026", type:"text/html"},
-    {filename:"week-W03.html.enc", title:"Недельный отчёт за 12-18 января 2026", type:"text/html"}
+    {filename:"week-W07.html.enc", week:"2026-W07", title:"Недельный отчёт за 9-15 февраля 2026", type:"text/html"},
+    {filename:"week-W03.html.enc", week:"2026-W03", title:"Недельный отчёт за 12-18 января 2026", type:"text/html"}
   ];
 
   function add(parent, tag, value, className) {
@@ -55,17 +58,26 @@
     return Number.isNaN(d.getTime()) ? "" : dateLabel.format(d);
   }
 
+  function nextScheduledAttempt() {
+    const at = asInstant(lastUpdate?.attempted_at);
+    if (!at) return null;
+    const next = new Date(at);
+    next.setUTCMinutes(49, 0, 0);
+    if (next <= at) next.setTime(next.getTime() + hour);
+    return next;
+  }
+
   function tick() {
     if (!lastUpdate) return;
-    const at = asInstant(lastUpdate.attempted_at);
-    const stale = at && Date.now() - at.getTime() > 2 * hour;
+    const expected = nextScheduledAttempt();
     const current = localDay.format(new Date());
     if (current !== renderedDay && lastUpdate.report) {
       renderedDay = current;
       showToday(lastUpdate.report, current);
       showWeek(lastUpdate.report, current, lastUpdate.week_published_at);
     }
-    showMessage("age-warning", stale ? "Страница пропустила не менее двух часовых интервалов. Сверьте сведения с площадкой перед решением." : "");
+    showMessage("age-warning", expected && Date.now() > expected.getTime()
+      ? "Обновление по расписанию на " + clock.format(expected) + " ещё не поступило. Перед решением сверьте сведения с площадкой." : "");
   }
 
   function sourceCaption(report) {
@@ -166,6 +178,7 @@
       if (payload.error) error += " " + String(payload.error);
     }
     showMessage("connection", error);
+    showFiles(payload.latest_week);
     renderedDay = localDay.format(new Date());
     if (payload.report) {
       showToday(payload.report, renderedDay);
@@ -192,9 +205,9 @@
     return Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")+"="), c=>c.charCodeAt(0));
   }
 
-  async function download(filename, key) {
+  async function download(filename, key, bypassCache=false) {
     const url = new URL(filename, root);
-    if (filename === "payload.enc") url.searchParams.set("v", String(Date.now()));
+    if (filename === "payload.enc" || bypassCache) url.searchParams.set("v", String(Date.now()));
     let response;
     try {
       response = await fetch(url, {cache:"no-store", credentials:"omit", referrerPolicy:"no-referrer"});
@@ -280,19 +293,45 @@
     archiveUrl = null;
   }
 
+  async function readAsset(asset, key) {
+    let data = await download(asset.filename, key);
+    if (!asset.sha256) return data;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt) data = await download(asset.filename, key, true);
+      const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+      const hex = Array.from(hash, byte => byte.toString(16).padStart(2, "0")).join("");
+      if (hex === asset.sha256) return data;
+    }
+    throw Error("archive-version");
+  }
+
+  async function checkChartPolicy(data, hashes) {
+    const template = document.createElement("template");
+    template.innerHTML = decoder.decode(data);
+    const scripts = template.content.querySelectorAll("script:not([src])");
+    for (const script of scripts) {
+      if (script.type && !["module", "text/javascript", "application/javascript"].includes(script.type)) continue;
+      if (!script.textContent.trim()) continue;
+      const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(script.textContent)));
+      if (!hashes.includes("'sha256-" + btoa(String.fromCharCode(...hash)) + "'")) throw Error("reload-page");
+    }
+  }
+
   async function openAsset(asset, btn) {
     if (!accessKey || btn.disabled) return;
     btn.disabled = true;
     showMessage("asset-status", "Открываем файл…");
     const usedKey = accessKey;
+    const request = ++assetRequest;
     try {
-      const decrypted = await download(asset.filename, usedKey);
-      if (usedKey !== accessKey) return;
+      const decrypted = await readAsset(asset, usedKey);
+      if (usedKey !== accessKey || request !== assetRequest) return;
       if (asset.type === "text/html") {
-        closeArchive();
-        // Only chart scripts from this rink's two sealed digests may run in the opaque frame.
         const hostPolicy = document.querySelector('meta[http-equiv="Content-Security-Policy"]').content;
         const chartHashes = hostPolicy.match(/'sha256-[A-Za-z0-9+/=]+'/g) || [];
+        if (asset.sha256) await checkChartPolicy(decrypted, chartHashes);
+        if (usedKey !== accessKey || request !== assetRequest) return;
+        closeArchive();
         const scriptPolicy = chartHashes.length ? chartHashes.join(" ") : "'none'";
         const policy = `<meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${scriptPolicy}; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">`;
         const cleanHtml = new Blob(["<!doctype html>",policy, decrypted], {type:"text/html;charset=utf-8"});
@@ -313,24 +352,71 @@
         setTimeout(()=>URL.revokeObjectURL(url), 60_000);
         showMessage("asset-status", "Сезонный PDF передан браузеру для скачивания.");
       }
-    } catch {showMessage("asset-status", "Файл не удалось открыть. Проверьте связь и повторите попытку.");}
+    } catch (error) {
+      if (usedKey !== accessKey || request !== assetRequest) return;
+      let message = "Файл не удалось открыть. Проверьте связь и повторите попытку.";
+      if (error.message === "archive-version") message = 'Оглавление и файл отчёта разных выпусков. Нажмите "Обновить" и снова откройте отчёт.';
+      if (error.message === "reload-page") message = "Для графиков нового выпуска требуется обновить страницу в браузере. Затем снова откройте отчёт.";
+      showMessage("asset-status", message);
+    }
     finally {btn.disabled = false;}
   }
 
-  for (const asset of files) {
-    const row = add(get("asset-links"), "div", undefined, "asset-row");
-    const btn = add(row,"button",asset.title + (asset.type === "application/pdf" ? " · скачать PDF" : ""));
-    btn.type = "button";
-    btn.addEventListener("click",()=>openAsset(asset,btn));
+  function latestAsset(meta) {
+    if (!meta || !/^\d{4}-W(?:0[1-9]|[1-4]\d|5[0-3])$/.test(meta.week)
+        || !/^[a-f0-9]{64}$/.test(meta.sha256) || !["current","last_verified"].includes(meta.availability)) return null;
+    const dates = [meta.date_from, meta.date_to];
+    if (!dates.every(d => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))) return null;
+    const [from, to] = dates.map(d => new Date(d + "T00:00:00Z"));
+    if (!Number.isFinite(+from) || !Number.isFinite(+to)
+        || from.toISOString().slice(0,10) !== dates[0] || to.toISOString().slice(0,10) !== dates[1]
+        || from.getUTCDay() !== 1 || +to - +from !== 6 * 24 * hour) return null;
+    const thursday = new Date(+from + 3 * 24 * hour);
+    const year = thursday.getUTCFullYear();
+    const weekNo = Math.floor((+thursday - Date.UTC(year,0,1)) / (7 * 24 * hour)) + 1;
+    if (meta.week !== year + "-W" + String(weekNo).padStart(2, "0")) return null;
+    const archive = files.find(file => file.week === meta.week);
+    const title = archive?.title || "Недельный отчёт с " + fullDate.format(from) + " по " + fullDate.format(to);
+    return {filename:"week-latest.html.enc", week:meta.week, sha256:meta.sha256, title, type:"text/html"};
   }
-  get("close-archive").addEventListener("click", closeArchive);
+
+  function showFiles(meta) {
+    const latest = latestAsset(meta);
+    const signature = latest ? [latest.week,latest.sha256,meta.availability].join("/") : "";
+    if (listedWeek === signature) return;
+    listedWeek = signature;
+    const container = get("asset-links");
+    container.replaceChildren();
+    if (latest) {
+      add(container, "p", "Последний проверенный полный недельный отчёт", "caption");
+      fileButton(latest);
+      if (meta.availability === "last_verified") {
+        add(container, "p", "При последней проверке реестр выпусков был недоступен. Здесь сохранён ранее проверенный отчёт.", "caption");
+      }
+    }
+    for (const file of files) {
+      if (!latest || file.week !== latest.week) fileButton(file);
+    }
+    function fileButton(asset) {
+      const row = add(container, "div", undefined, "asset-row");
+      const btn = add(row,"button",asset.title + (asset.type === "application/pdf" ? " · скачать PDF" : ""));
+      btn.type = "button";
+      btn.addEventListener("click",()=>openAsset(asset,btn));
+    }
+  }
+  get("close-archive").addEventListener("click", ()=>{
+    ++assetRequest;
+    closeArchive();
+    showMessage("asset-status", "");
+  });
   get("lock-report").addEventListener("click",()=>{
     ++attemptToken;
     accessKey = null;
     lastUpdate = null;
+    listedWeek = undefined;
     history.replaceState(null, "", entryPath+location.search);
     closeArchive();
-    ["checked","connection","age-warning","report-date","summary","today-content","data-source","week-content","asset-status","archive-title","gate-message"].forEach(id=>get(id).replaceChildren());
+    ["checked","connection","age-warning","report-date","summary","today-content","data-source","week-content","asset-links","asset-status","archive-title","gate-message"].forEach(id=>get(id).replaceChildren());
     get("report").hidden = true;
     get("gate").hidden = false;
     get("access").value = "";
@@ -341,7 +427,11 @@
   window.addEventListener("hashchange",()=>{if (location.hash) unlock(location.hash);});
   window.addEventListener("focus", ()=>refresh());
   document.addEventListener("visibilitychange",()=>{if (!document.hidden) refresh();});
-  setInterval(()=>{ tick(); if (Date.now()-previousCheck >= hour) refresh(); }, 60_000);
+  setInterval(()=>{
+    tick();
+    const expected = nextScheduledAttempt();
+    if ((expected && Date.now() >= expected.getTime()) || Date.now()-previousCheck >= hour) refresh();
+  }, 60_000);
   const entry = history.state;
   const stored = entry && entry.rink === rink && entry.entryPath === entryPath && entry.key;
   if (location.hash || stored) unlock(location.hash || stored);
