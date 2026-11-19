@@ -282,6 +282,7 @@
   get("close-archive").addEventListener("click", closeArchive);
   get("refresh").addEventListener("click", ()=>refresh(true));
   get("access-form").addEventListener("submit",e=>{e.preventDefault();unlock(get("access").value);});
+  window.addEventListener("hashchange",()=>{if (location.hash) unlock(location.hash);});
   window.addEventListener("focus", ()=>refresh());
   document.addEventListener("visibilitychange",()=>{if (!document.hidden) refresh();});
   setInterval(()=>{ tick(); if (Date.now()-previousCheck >= hour) refresh(); }, 60_000);
