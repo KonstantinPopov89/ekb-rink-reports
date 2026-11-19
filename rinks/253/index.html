@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru" data-rink="253">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Каток на площади | Отчёт директора</title>
+  <link rel="stylesheet" href="../../style.css">
+  <script src="../../reader.js" defer></script>
+</head>
+<body>
+  <main>
+    <nav class="back"><a href="../../">← Все катки</a></nav>
+    <header>
+      <h1>Каток на площади</h1>
+      <p>Расписание и работа касс</p>
+    </header>
+    <noscript><p>Чтобы открыть защищённый отчёт, включите JavaScript в браузере.</p></noscript>
+    <section id="gate" aria-labelledby="gate-title">
+      <h2 id="gate-title">Доступ к отчёту</h2>
+      <p>Откройте личную ссылку директора или вставьте ключ доступа к этому катку.</p>
+      <form id="access-form">
+        <label for="access">Ключ или личная ссылка</label>
+        <div class="input-row">
+          <input id="access" type="password" required autocomplete="off" spellcheck="false" autocapitalize="none">
+          <button type="submit" class="primary">Открыть отчёт</button>
+        </div>
+      </form>
+      <p role="status" id="gate-message"></p>
+    </section>
+    <div id="report" hidden>
+      <div class="toolbar">
+        <p id="checked"></p><button type="button" id="refresh">Обновить</button>
+      </div>
+      <p id="connection" class="notice" role="status" hidden></p>
+      <p id="age-warning" class="notice" role="status" hidden></p>
+      <section aria-labelledby="today-title">
+        <h2 id="today-title">На сегодня</h2>
+        <p id="report-date" class="muted"></p>
+        <p id="summary" class="lead"></p>
+        <div id="today-content"></div>
+        <p id="data-source" class="caption"></p>
+      </section>
+      <section aria-labelledby="week-title">
+        <h2 id="week-title">План на неделю</h2>
+        <div id="week-content"></div>
+      </section>
+      <section aria-labelledby="assets-title">
+        <h2 id="assets-title">Отчёты по катку</h2>
+        <div id="asset-links"></div>
+        <p id="asset-status" role="status" class="caption"></p>
+        <div id="archive-view" hidden>
+          <div class="toolbar"><h3 id="archive-title"></h3><button type="button" id="close-archive">Закрыть</button></div>
+          <iframe id="archive-frame" title="Недельный отчёт" sandbox="" referrerpolicy="no-referrer"></iframe>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
