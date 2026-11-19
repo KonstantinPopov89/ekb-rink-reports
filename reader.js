@@ -127,7 +127,13 @@
     }
     const published = asInstant(publishedAt || report.week_published_at);
     if (published) add(body, "p", "План подготовлен " + clock.format(published) + " по Екатеринбургу.", "caption");
-    const list = add(body, "ul", undefined, "week-list");
+    let container = body;
+    if (!days.some(d => Number.isInteger(d.checks) && d.checks > 0)) {
+      add(body, "p", "На неделю с " + localDate(mondayIso) + " по " + localDate(sundayIso) + " пока нет наблюдений для выбора часов усиления. Действующий график смен остаётся ориентиром. Проверяем Lime каждый час.");
+      container = add(body, "details");
+      add(container, "summary", "Показать сопоставимые дни");
+    }
+    const list = add(container, "ul", undefined, "week-list");
     for (const day of days) {
       const row = add(list, "li");
       add(row, "p", localDate(day.date), "week-date");
