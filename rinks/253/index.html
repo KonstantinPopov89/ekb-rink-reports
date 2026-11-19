@@ -2,10 +2,11 @@
 <html lang="ru" data-rink="253">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-DiMmxoaAcr7BWSdgxnKQQ8ruopYKK0bO5qIZKqxqv/A=' 'sha256-R2wK4PabOJZyJBpAhHA+tJmTVMS9bzYAYcbyjI7m05U=' 'sha256-UxNWqIDHWi8tWa4HmQT9zCVnrGNPJM/XMAKP/hkovmI=' 'sha256-ZGv6nonO+lTEqqzMYwnl7og3s4A9jKIyzYNtwBQdZZA=' 'sha256-ZpBRK0hW8f1kmmmsCk+P4sdCJTSY92GrxvH5zmfxOyw=' 'sha256-gkdJ2JtlKZCehBg75W1vSdMhN+/CjXraJkKZE8qahLE=' 'sha256-hmeajhXWuH0EjOVh2r5kGjZdF9XgEFAxxnRUhaDABa0=' 'sha256-nwAJ1Xl1dMj9q5TyOn3hVi9PxbKPAHzbcDk1lMO9Sa8=' 'sha256-zl4lCWI/B1eizDDIBYkeKJ84Q0KcKXg3sh7F0Q1XP8A='; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Каток на площади | Отчёт директора</title>
   <link rel="stylesheet" href="../../style.css">
   <script src="../../reader.js" defer></script>
@@ -53,9 +54,10 @@
         <p id="asset-status" role="status" class="caption"></p>
         <div id="archive-view" hidden>
           <div class="toolbar"><h3 id="archive-title"></h3><button type="button" id="close-archive">Закрыть</button></div>
-          <iframe id="archive-frame" title="Недельный отчёт" sandbox="" referrerpolicy="no-referrer"></iframe>
+          <iframe id="archive-frame" title="Недельный отчёт" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
         </div>
       </section>
+      <button type="button" id="lock-report">Закрыть доступ в этой вкладке</button>
     </div>
   </main>
 </body>

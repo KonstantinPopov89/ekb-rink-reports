@@ -7,7 +7,7 @@
   const get = id => document.getElementById(id);
   const decoder = new TextDecoder("utf-8", {fatal: true});
   const encoder = new TextEncoder();
-  const cacheKey = `rink-director-key:${location.pathname.replace(/index\.html$/, "")}`;
+  const entryPath = location.pathname;
   const root = new URL("./", location.href);
   const zone = "Asia/Yekaterinburg";
   const clock = new Intl.DateTimeFormat("ru-RU", {timeZone: zone, day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
@@ -20,6 +20,7 @@
   let inFlight = false;
   let previousCheck = 0;
   let lastUpdate = null;
+  let renderedDay = "";
   let archiveUrl = null;
 
   const files = [
@@ -58,17 +59,35 @@
     if (!lastUpdate) return;
     const at = asInstant(lastUpdate.attempted_at);
     const stale = at && Date.now() - at.getTime() > 2 * hour;
-    const oldDay = lastUpdate.report?.today?.date && lastUpdate.report.today.date !== localDay.format(new Date());
-    let notice = stale ? "Страница пропустила не менее двух часовых интервалов. Сверьте сведения с площадкой перед решением." : "";
-    if (oldDay) notice += (notice ? " " : "") + "Показан срез за другой день. Состояние текущей смены нужно уточнить.";
-    showMessage("age-warning", notice);
+    const current = localDay.format(new Date());
+    if (current !== renderedDay && lastUpdate.report) {
+      renderedDay = current;
+      showToday(lastUpdate.report, current);
+      showWeek(lastUpdate.report, current, lastUpdate.week_published_at);
+    }
+    showMessage("age-warning", stale ? "Страница пропустила не менее двух часовых интервалов. Сверьте сведения с площадкой перед решением." : "");
   }
 
-  function showToday(report) {
+  function sourceCaption(report) {
+    const source = [report.source];
+    const asOf = asInstant(report.as_of);
+    const fetched = asInstant(report.fetched_at);
+    if (asOf) source.push("срез по состоянию на " + clock.format(asOf));
+    if (fetched) source.push("ответ получен " + clock.format(fetched));
+    return source.filter(Boolean).join(" · ");
+  }
+
+  function showToday(report, current) {
     const body = get("today-content");
     body.replaceChildren();
     const today = report.today || {};
-    get("report-date").textContent = localDate(today.date);
+    get("report-date").textContent = localDate(current);
+    get("data-source").textContent = sourceCaption(report);
+    if (today.date !== current) {
+      get("summary").textContent = "Срез на сегодняшнюю смену ещё не поступил.";
+      if (today.date) add(body, "p", "Последнее наблюдение за " + localDate(today.date) + ". Перед сменой уточните статус площадки.", "muted");
+      return;
+    }
     get("summary").textContent = report.summary || "";
     if (report.advice) add(body, "p", report.advice);
     if (today.scope) add(body, "p", today.scope, "caption");
@@ -86,23 +105,30 @@
       const list = add(note, "ul");
       report.limitations.forEach(item => add(list, "li", item));
     }
-    const source = [report.source];
-    const asOf = asInstant(report.as_of);
-    const fetched = asInstant(report.fetched_at);
-    if (asOf) source.push("срез по состоянию на " + clock.format(asOf));
-    if (fetched) source.push("ответ получен " + clock.format(fetched));
-    get("data-source").textContent = source.filter(Boolean).join(" · ");
   }
 
-  function showWeek(report) {
+  function showWeek(report, current, publishedAt) {
     const body = get("week-content");
     body.replaceChildren();
     if (!Array.isArray(report.week) || !report.week.length) {
       add(body, "p", "План появится после первого доступного среза.");
       return;
     }
+    const monday = new Date(current + "T12:00:00Z");
+    monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay()+6)%7);
+    const mondayIso = monday.toISOString().slice(0,10);
+    const sunday = new Date(monday);
+    sunday.setUTCDate(sunday.getUTCDate()+6);
+    const sundayIso = sunday.toISOString().slice(0,10);
+    const days = report.week.filter(day=>day.date >= mondayIso && day.date <= sundayIso);
+    if (!days.length) {
+      add(body,"p","План на неделю с " + localDate(mondayIso) + " ещё не поступил.");
+      return;
+    }
+    const published = asInstant(publishedAt || report.week_published_at);
+    if (published) add(body, "p", "План подготовлен " + clock.format(published) + " по Екатеринбургу.", "caption");
     const list = add(body, "ul", undefined, "week-list");
-    for (const day of report.week) {
+    for (const day of days) {
       const row = add(list, "li");
       add(row, "p", localDate(day.date), "week-date");
       const detail = add(row, "div");
@@ -125,7 +151,7 @@
     const lastSuccess = asInstant(payload.last_success_at);
     const stamps = ["Екатеринбург"];
     if (triedAt) stamps.push("проверка " + clock.format(triedAt));
-    if (payload.status === "error" && lastSuccess) stamps.push("последний успешный срез " + clock.format(lastSuccess));
+    if (lastSuccess) stamps.push("последний успешный срез " + clock.format(lastSuccess));
     get("checked").textContent = stamps.join(" · ");
     let error = "";
     if (payload.status === "error") {
@@ -134,9 +160,10 @@
       if (payload.error) error += " " + String(payload.error);
     }
     showMessage("connection", error);
+    renderedDay = localDay.format(new Date());
     if (payload.report) {
-      showToday(payload.report);
-      showWeek(payload.report);
+      showToday(payload.report, renderedDay);
+      showWeek(payload.report, renderedDay, payload.week_published_at);
     } else {
       get("report-date").textContent = "";
       get("summary").textContent = "Данные на сегодня ещё не поступили.";
@@ -206,8 +233,8 @@
       const payload = await readPayload(key);
       if (token !== attemptToken) return;
       accessKey = key;
-      try {sessionStorage.setItem(cacheKey, value);} catch { /* Restricted browser storage. */ }
-      if (location.hash) history.replaceState(null,"",location.pathname+location.search);
+      // The key belongs to this history entry. Other sites on this Pages origin share sessionStorage.
+      history.replaceState({rink, entryPath, key:value},"",entryPath+location.search);
       get("access").value = "";
       previousCheck = Date.now();
       render(payload);
@@ -226,7 +253,12 @@
     inFlight = true;
     previousCheck = Date.now();
     get("refresh").disabled = true;
-    try {render(await readPayload(accessKey));} catch {
+    const usedKey = accessKey;
+    try {
+      const fresh = await readPayload(usedKey);
+      if (accessKey === usedKey) render(fresh);
+    } catch {
+      if (accessKey !== usedKey) return;
       showMessage("connection", "Не удалось получить обновление страницы. Показана сохранённая версия этой вкладки.");
       tick();
     } finally {
@@ -246,11 +278,17 @@
     if (!accessKey || btn.disabled) return;
     btn.disabled = true;
     showMessage("asset-status", "Открываем файл…");
+    const usedKey = accessKey;
     try {
-      const decrypted = await download(asset.filename, accessKey);
+      const decrypted = await download(asset.filename, usedKey);
+      if (usedKey !== accessKey) return;
       if (asset.type === "text/html") {
         closeArchive();
-        const policy = "<meta charset='utf-8'><meta name='referrer' content='no-referrer'><meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'\">";
+        // Only chart scripts from this rink's two sealed digests may run in the opaque frame.
+        const hostPolicy = document.querySelector('meta[http-equiv="Content-Security-Policy"]').content;
+        const chartHashes = hostPolicy.match(/'sha256-[A-Za-z0-9+/=]+'/g) || [];
+        const scriptPolicy = chartHashes.length ? chartHashes.join(" ") : "'none'";
+        const policy = `<meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${scriptPolicy}; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">`;
         const cleanHtml = new Blob(["<!doctype html>",policy, decrypted], {type:"text/html;charset=utf-8"});
         archiveUrl = URL.createObjectURL(cleanHtml);
         get("archive-frame").src = archiveUrl;
@@ -280,13 +318,25 @@
     btn.addEventListener("click",()=>openAsset(asset,btn));
   }
   get("close-archive").addEventListener("click", closeArchive);
+  get("lock-report").addEventListener("click",()=>{
+    ++attemptToken;
+    accessKey = null;
+    lastUpdate = null;
+    history.replaceState(null, "", entryPath+location.search);
+    closeArchive();
+    ["checked","connection","age-warning","report-date","summary","today-content","data-source","week-content","asset-status","archive-title","gate-message"].forEach(id=>get(id).replaceChildren());
+    get("report").hidden = true;
+    get("gate").hidden = false;
+    get("access").value = "";
+    get("access").focus();
+  });
   get("refresh").addEventListener("click", ()=>refresh(true));
   get("access-form").addEventListener("submit",e=>{e.preventDefault();unlock(get("access").value);});
   window.addEventListener("hashchange",()=>{if (location.hash) unlock(location.hash);});
   window.addEventListener("focus", ()=>refresh());
   document.addEventListener("visibilitychange",()=>{if (!document.hidden) refresh();});
   setInterval(()=>{ tick(); if (Date.now()-previousCheck >= hour) refresh(); }, 60_000);
-  let stored;
-  try {stored = sessionStorage.getItem(cacheKey);} catch { /* Private mode may disable storage. */ }
+  const entry = history.state;
+  const stored = entry && entry.rink === rink && entry.entryPath === entryPath && entry.key;
   if (location.hash || stored) unlock(location.hash || stored);
 })();

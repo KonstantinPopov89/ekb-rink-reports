@@ -2,10 +2,11 @@
 <html lang="ru" data-rink="300">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-6EGfoQSnY08P1VVG4fOiCfvenkoHiL38C7f02dUTbAo=' 'sha256-BRxscQ/KIEDb0VMoDOdW8m2Y3LEDaTPzct/7SDwbsbw=' 'sha256-DiMmxoaAcr7BWSdgxnKQQ8ruopYKK0bO5qIZKqxqv/A=' 'sha256-ErDTfiXrUUjfDXk623Vy8r+xieR0328FCfhyi9c69yM=' 'sha256-MBs7WLMzs/BbMSvnkM/5vyuhHa1nC0jDBHjh8+zG/Fs=' 'sha256-QEkDFOW0Kg0mc9zhqIFmhodw7P3M+mGMGjOuoMSr1aw=' 'sha256-TJDDr563YHJURXcQeavuC7ZtQm4yRTVRwqlHgiDVLDU=' 'sha256-Zp2WvOAG9HfY9EF3hxTkmogXuH8Ek7UWxmOyNP7qFEY=' 'sha256-bsKgXeLs270nJO79UtqyJgQsB5j2obozV5DMZmINniI='; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Энергия льда, РМК | Отчёт директора</title>
   <link rel="stylesheet" href="../../style.css">
   <script src="../../reader.js" defer></script>
@@ -53,9 +54,10 @@
         <p id="asset-status" role="status" class="caption"></p>
         <div id="archive-view" hidden>
           <div class="toolbar"><h3 id="archive-title"></h3><button type="button" id="close-archive">Закрыть</button></div>
-          <iframe id="archive-frame" title="Недельный отчёт" sandbox="" referrerpolicy="no-referrer"></iframe>
+          <iframe id="archive-frame" title="Недельный отчёт" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
         </div>
       </section>
+      <button type="button" id="lock-report">Закрыть доступ в этой вкладке</button>
     </div>
   </main>
 </body>

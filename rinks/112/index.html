@@ -2,10 +2,11 @@
 <html lang="ru" data-rink="112">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-115/sPLOUjxjHkzJ2BFJ2QCkr5Po2N6rCmTv150wprE=' 'sha256-5rFbAWXxOcECYBB+Xp7yzmQk6XiGNo5kFpmpMsGb9fc=' 'sha256-7m+QPjV76nGWWLbTAPN1UETVCzaqat3Qvdk2jCKv1+8=' 'sha256-9k4qXllnr/m8G/gXxJM4QQpLHrhLfc0yhgdxmNWoO7E=' 'sha256-DiMmxoaAcr7BWSdgxnKQQ8ruopYKK0bO5qIZKqxqv/A=' 'sha256-M0j6JS/uD2hcrmUqfCIyuhWi0HDzQi0ZXBMoDgZpojw=' 'sha256-OID8qo0vk+2ODpNa2fzAjQMbdU1sPXfIP7rcY65Cm24=' 'sha256-VJGJN65iu9eZo+egkpx4/XMJihz/egwfA/xu5Ip0rUE=' 'sha256-Xs5q74MCpGayzmlzNWibSRDuZ1iHERoEf81q8JX2od4='; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>ЦПКиО Маяковского | Отчёт директора</title>
   <link rel="stylesheet" href="../../style.css">
   <script src="../../reader.js" defer></script>
@@ -53,9 +54,10 @@
         <p id="asset-status" role="status" class="caption"></p>
         <div id="archive-view" hidden>
           <div class="toolbar"><h3 id="archive-title"></h3><button type="button" id="close-archive">Закрыть</button></div>
-          <iframe id="archive-frame" title="Недельный отчёт" sandbox="" referrerpolicy="no-referrer"></iframe>
+          <iframe id="archive-frame" title="Недельный отчёт" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
         </div>
       </section>
+      <button type="button" id="lock-report">Закрыть доступ в этой вкладке</button>
     </div>
   </main>
 </body>
